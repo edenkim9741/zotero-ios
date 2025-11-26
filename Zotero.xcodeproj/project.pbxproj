@@ -48,8 +48,6 @@
 		614D65822A79C9AC007CF449 /* Localizable.stringsdict in Resources */ = {isa = PBXBuildFile; fileRef = 614D65802A79C9AC007CF449 /* Localizable.stringsdict */; };
 		614D65832A79C9B0007CF449 /* Localizable.stringsdict in Resources */ = {isa = PBXBuildFile; fileRef = 614D65802A79C9AC007CF449 /* Localizable.stringsdict */; };
 		614D65872A8030C9007CF449 /* OrderedCollections in Frameworks */ = {isa = PBXBuildFile; productRef = 614D65862A8030C9007CF449 /* OrderedCollections */; };
-		615645512DE0825900B8AA6D /* FeatureGates.xcconfig in Resources */ = {isa = PBXBuildFile; fileRef = 615645502DE0825900B8AA6D /* FeatureGates.xcconfig */; };
-		615645522DE0825900B8AA6D /* FeatureGates.xcconfig in Resources */ = {isa = PBXBuildFile; fileRef = 615645502DE0825900B8AA6D /* FeatureGates.xcconfig */; };
 		615C10E12D5BA17A001F1E8E /* RecognizerController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 615C10E02D5BA17A001F1E8E /* RecognizerController.swift */; };
 		615C10E22D5E22F1001F1E8E /* RecognizerController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 615C10E02D5BA17A001F1E8E /* RecognizerController.swift */; };
 		615C10E32D5E230D001F1E8E /* PDFWorkerController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61168F602D50D4B6005495E8 /* PDFWorkerController.swift */; };
@@ -4585,7 +4583,7 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
 				LastSwiftUpdateCheck = 1120;
-				LastUpgradeCheck = 1610;
+				LastUpgradeCheck = 2610;
 				ORGANIZATIONNAME = "Corporation for Digital Scholarship";
 				TargetAttributes = {
 					B30D59542206F60400884C4A = {
@@ -4703,7 +4701,6 @@
 				B3ADAE4B2833B56F00D46271 /* LookupViewController.xib in Resources */,
 				B3C8DD8827B54EE70084E1AD /* CollectionsPickerViewController.xib in Resources */,
 				B3593F2C241A61C700760E20 /* ItemDetailTagContentView.xib in Resources */,
-				615645522DE0825900B8AA6D /* FeatureGates.xcconfig in Resources */,
 				B3B78C44266FAF0800E91D02 /* citation in Resources */,
 				B32CDD3D2AEA9BB100EF5054 /* AnnotationPopoverViewController.xib in Resources */,
 				B30D59652206F60500884C4A /* LaunchScreen.storyboard in Resources */,
@@ -4766,7 +4763,6 @@
 				618D83E82BAAC88C00E7966B /* PrivacyInfo.xcprivacy in Resources */,
 				B311B3222386A39800BCF592 /* MainInterface.storyboard in Resources */,
 				B36459E926441A2000A0C2C0 /* TagRow.xib in Resources */,
-				615645512DE0825900B8AA6D /* FeatureGates.xcconfig in Resources */,
 				614D65832A79C9B0007CF449 /* Localizable.stringsdict in Resources */,
 				B33E8A4E27B6AAF000CBC7DE /* CollectionCellContentView.xib in Resources */,
 				B355B8FF239951E800E837B9 /* translation in Resources */,
@@ -4799,7 +4795,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "swiftgen config lint\nswiftgen config run\n";
+			shellScript = "export PATH=\"$PATH:/opt/homebrew/bin\"\n\nswiftgen config lint\nswiftgen config run\n";
 		};
 		6185A1A82D9C266100285385 /* Bundle Utilities */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -4858,7 +4854,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "swiftlint\n";
+			shellScript = "export PATH=\"$PATH:/opt/homebrew/bin\"\nswiftlint\n";
 		};
 		B3052A912C412E12008C8596 /* Bundle Reader */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -6302,6 +6298,7 @@
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 			};
@@ -6362,6 +6359,7 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "";
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
@@ -6383,7 +6381,11 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = 8LAYR367YV;
+				ENABLE_APP_SANDBOX = YES;
 				ENABLE_BITCODE = NO;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
+				ENABLE_RESOURCE_ACCESS_AUDIO_INPUT = YES;
+				ENABLE_RESOURCE_ACCESS_PHOTO_LIBRARY = YES;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(PROJECT_DIR)",
@@ -6422,7 +6424,11 @@
 				COPY_PHASE_STRIP = YES;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 8LAYR367YV;
+				ENABLE_APP_SANDBOX = YES;
 				ENABLE_BITCODE = NO;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
+				ENABLE_RESOURCE_ACCESS_AUDIO_INPUT = YES;
+				ENABLE_RESOURCE_ACCESS_PHOTO_LIBRARY = YES;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(PROJECT_DIR)",
@@ -6569,6 +6575,9 @@
 				COPY_PHASE_STRIP = YES;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 8LAYR367YV;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
+				ENABLE_RESOURCE_ACCESS_AUDIO_INPUT = YES;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(PROJECT_DIR)",
@@ -6604,6 +6613,9 @@
 				COPY_PHASE_STRIP = YES;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 8LAYR367YV;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
+				ENABLE_RESOURCE_ACCESS_AUDIO_INPUT = YES;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(PROJECT_DIR)",
@@ -6689,6 +6701,7 @@
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 			};
@@ -6708,7 +6721,11 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = 8LAYR367YV;
+				ENABLE_APP_SANDBOX = YES;
 				ENABLE_BITCODE = NO;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
+				ENABLE_RESOURCE_ACCESS_AUDIO_INPUT = YES;
+				ENABLE_RESOURCE_ACCESS_PHOTO_LIBRARY = YES;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(PROJECT_DIR)",
@@ -6803,6 +6820,9 @@
 				COPY_PHASE_STRIP = YES;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 8LAYR367YV;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
+				ENABLE_RESOURCE_ACCESS_AUDIO_INPUT = YES;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(PROJECT_DIR)",

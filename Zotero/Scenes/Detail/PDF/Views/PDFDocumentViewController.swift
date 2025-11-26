@@ -14,6 +14,8 @@ import PSPDFKit
 import PSPDFKitUI
 import RealmSwift
 import RxSwift
+import PencilKit
+import QuartzCore
 
 protocol PDFDocumentDelegate: AnyObject {
     func annotationTool(
@@ -39,7 +41,14 @@ final class PDFDocumentViewController: UIViewController {
     private let viewModel: ViewModel<PDFReaderActionHandler>
     private let disposeBag: DisposeBag
     private let initialUIHidden: Bool
-
+    
+    private var pkCanvasView: PKCanvasView?
+    private var pkToolPicker: PKToolPicker?
+    private var isPencilKitDrawing: Bool = false
+    
+    private var commitTimer: Timer?
+    private let groupingTimeInterval: TimeInterval = 0.8 // 0.8초 대기 (조절 가능)
+    
     private static var toolHistory: [PSPDFKit.Annotation.Tool?] = []
     
     private var selectionView: SelectionView?
@@ -113,6 +122,19 @@ final class PDFDocumentViewController: UIViewController {
             select(annotation: annotation, pageIndex: PageIndex(page), document: viewModel.state.document)
         }
     }
+    
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        
+        if let canvasView = self.pkCanvasView, let toolPicker = self.pkToolPicker {
+            if !canvasView.isHidden {
+                toolPicker.setVisible(true, forFirstResponder: canvasView)
+                toolPicker.addObserver(canvasView)
+                
+                canvasView.becomeFirstResponder()
+            }
+        }
+    }
 
     deinit {
         disableAnnotationTools()
@@ -176,6 +198,56 @@ final class PDFDocumentViewController: UIViewController {
     func toggle(annotationTool: PSPDFKit.Annotation.Tool, color: UIColor?, tappedWithStylus: Bool, resetPencilManager: Bool = true) {
         guard let stateManager = pdfController?.annotationStateManager else { return }
 
+// --- PencilKit 가로채기 로직 ---
+        if annotationTool == .ink {
+            let isTurningOffInk = (stateManager.state == .ink) || isPencilKitDrawing
+
+            if isTurningOffInk {
+                // 잉크 모드 끄기 (PencilKit 비활성화)
+                pkCanvasView?.isHidden = true
+                pkToolPicker?.setVisible(false, forFirstResponder: pkCanvasView!)
+                pkCanvasView?.resignFirstResponder()
+                isPencilKitDrawing = false
+                
+                // stateManager가 .ink가 아닐 수도 있으니 nil로 설정
+                stateManager.setState(nil, variant: nil)
+                
+                // PSPDFKit의 스크롤 등 상호작용 다시 활성화
+                pdfController?.view.isUserInteractionEnabled = true
+            } else {
+                // 잉크 모드 켜기 (PencilKit 활성화)
+                
+                // 다른 PSPDFKit 도구가 활성 상태라면 끕니다.
+                if stateManager.state != nil {
+                    stateManager.setState(nil, variant: nil)
+                }
+
+                pkCanvasView?.isHidden = false
+                pkToolPicker?.setVisible(true, forFirstResponder: pkCanvasView!)
+                pkCanvasView?.becomeFirstResponder()
+                isPencilKitDrawing = true
+                
+                // 중요: PencilKit이 이벤트를 독점하도록 PSPDFKit의 상호작용을 막습니다.
+                // (주의: 이 방법은 스크롤 등 모든 상호작용을 막으므로,
+                // 더 나은 방법은 pkCanvasView의 drawingPolicy를 .pencilOnly로 하고
+                // pdfController의 스크롤뷰 pan gesture와 충돌을 해결하는 것입니다.
+                // 일단 간단한 버전으로 진행합니다.)
+                pdfController?.view.isUserInteractionEnabled = false
+                // PKCanvasView는 자식 뷰이므로 상호작용을 수동으로 다시 활성화
+                pkCanvasView?.isUserInteractionEnabled = true
+            }
+            return // PSPDFKit의 잉크 로직을 스킵합니다.
+        } else {
+            // 다른 도구 (하이라이트, 지우개 등)가 선택된 경우
+            // PencilKit이 활성화되어 있었다면 비활성화합니다.
+            if isPencilKitDrawing {
+                pkCanvasView?.isHidden = true
+                pkToolPicker?.setVisible(false, forFirstResponder: pkCanvasView!)
+                pkCanvasView?.resignFirstResponder()
+                isPencilKitDrawing = false
+                pdfController?.view.isUserInteractionEnabled = true
+            }
+        }
         stateManager.stylusMode = .fromStylusManager
 
         let toolToAdd = stateManager.state == annotationTool ? nil : annotationTool
@@ -591,26 +663,69 @@ final class PDFDocumentViewController: UIViewController {
 
         pdfController.willMove(toParent: self)
         addChild(pdfController)
-        view.addSubview(pdfController.view)
+        view.addSubview(pdfController.view) // PSPDFKit 뷰 추가
         pdfController.didMove(toParent: self)
 
+        // 기본 PDF 뷰 제약 조건
         NSLayoutConstraint.activate([
             pdfController.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             pdfController.view.bottomAnchor.constraint(equalTo: view.bottomAnchor),
             pdfController.view.leadingAnchor.constraint(equalTo: view.leadingAnchor)
         ])
-        if #available(iOS 26.0.0, *) {
-            NSLayoutConstraint.activate([
-                pdfController.view.topAnchor.constraint(equalTo: view.topAnchor)
-            ])
-        } else {
-            NSLayoutConstraint.activate([
-                pdfController.view.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor)
-            ])
-        }
+        
+//        if #available(iOS 11.0, *) { // iOS 버전에 따른 Top 제약
+//            NSLayoutConstraint.activate([
+//                pdfController.view.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor)
+//            ])
+//        } else {
+        NSLayoutConstraint.activate([
+            pdfController.view.topAnchor.constraint(equalTo: view.topAnchor)
+        ])
+//        }
 
         self.pdfController = pdfController
+        
+        // ==========================================
+        // ✏️ PencilKit CanvasView 강제 추가 (수정됨)
+        // ==========================================
+        
+        let canvasView = PKCanvasView()
+        canvasView.translatesAutoresizingMaskIntoConstraints = false
+        
+        // [중요 1] pdfController.view가 아니라, self.view(최상위)에 추가합니다.
+        self.view.addSubview(canvasView)
+        
+        // [중요 2] PSPDFKit 뷰보다 앞으로 가져옵니다.
+        self.view.bringSubviewToFront(canvasView)
 
+        // 제약조건: 화면 전체를 덮도록 설정
+        NSLayoutConstraint.activate([
+            canvasView.leadingAnchor.constraint(equalTo: self.view.leadingAnchor),
+            canvasView.trailingAnchor.constraint(equalTo: self.view.trailingAnchor),
+            canvasView.topAnchor.constraint(equalTo: self.view.topAnchor),
+            canvasView.bottomAnchor.constraint(equalTo: self.view.bottomAnchor)
+        ])
+
+//        // [중요 3] 디버깅용 설정
+//        canvasView.backgroundColor = UIColor.red.withAlphaComponent(0.3) // 빨간색 반투명
+//        canvasView.isOpaque = false
+//        canvasView.isHidden = false // <--- 무조건 보이게 설정! (기존 코드에서 true였음)
+        
+        // [중요 4] 입력 설정 (시뮬레이터라면 anyInput 필수)
+        #if targetEnvironment(simulator)
+            canvasView.drawingPolicy = .anyInput
+        #else
+            canvasView.drawingPolicy = .pencilOnly // 실제 기기에서는 펜슬만
+        #endif
+        
+        canvasView.delegate = self
+        self.pkCanvasView = canvasView
+
+        let toolPicker = PKToolPicker()
+        toolPicker.addObserver(canvasView)
+        toolPicker.setVisible(true, forFirstResponder: canvasView) // 강제 보임
+        self.pkToolPicker = toolPicker
+        
         func createPdfController(with document: PSPDFKit.Document, settings: PDFSettings) -> PDFViewController {
             let pdfConfiguration = PDFConfiguration { builder in
                 builder.scrollDirection = settings.direction
@@ -1129,10 +1244,10 @@ class SelectionView: UIView {
     private func commonSetup() {
         backgroundColor = .clear
         autoresizingMask = [.flexibleTopMargin, .flexibleLeftMargin, .flexibleBottomMargin, .flexibleRightMargin, .flexibleWidth, .flexibleHeight]
-        layer.borderColor = Asset.Colors.annotationHighlightSelection.color.cgColor
-        layer.borderWidth = 2.5
-        layer.cornerRadius = 2.5
-        layer.masksToBounds = true
+//        layer.borderColor = Asset.Colors.annotationHighlightSelection.color.cgColor
+//        layer.borderWidth = 2.5
+//        layer.cornerRadius = 2.5
+//        layer.masksToBounds = true
     }
 }
 
@@ -1203,3 +1318,70 @@ extension PDFDocumentViewController: PSPDFKitUI.ScrubberBarDelegate {
 }
 
 extension PDFDocumentViewController: ParentWithSidebarDocumentController {}
+
+extension PDFDocumentViewController: PKCanvasViewDelegate {
+    func canvasViewDrawingDidChange(_ canvasView: PKCanvasView) {
+        // 이 메서드는 스트로크가 끝날 때마다 호출되지 않을 수 있습니다.
+        // `canvasViewDidEndUsingTool`을 사용하는 것이 더 좋습니다.
+    }
+    
+    func canvasViewDidEndUsingTool(_ canvasView: PKCanvasView) {
+        // 1. 진행 중이던 타이머가 있다면 취소 (아직 문장이 안 끝났다는 뜻)
+        commitTimer?.invalidate()
+        
+        // 2. 현재 그려진 획이 없으면 리턴
+        guard !canvasView.drawing.strokes.isEmpty else { return }
+        
+        // (옵션) 공간 로직: 만약 마지막 획이 이전 획들과 너무 멀리 떨어져 있다면
+        // 타이머 기다리지 말고 즉시 저장해버리는 로직을 여기에 추가할 수 있습니다.
+        // 일단은 타이머 방식으로 충분합니다.
+        
+        // 3. 새로운 타이머 시작
+        commitTimer = Timer.scheduledTimer(withTimeInterval: groupingTimeInterval, repeats: false) { [weak self] _ in
+            // 시간이 다 될 때까지 추가 입력이 없으면 저장 실행
+            self?.saveCurrentDrawing(canvasView)
+        }
+    }
+    
+    // [3] 실제 저장을 수행하는 함수 (새로 추가)
+    private func saveCurrentDrawing(_ canvasView: PKCanvasView) {
+        let drawing = canvasView.drawing
+        guard !drawing.strokes.isEmpty else { return }
+        
+        // 이 시점에서는 캔버스에 있는 '모든 획'을 하나로 묶습니다.
+        let allStrokes = drawing.strokes
+        
+        guard let pageView = pdfController?.pageViewForPage(at: pdfController?.pageIndex ?? 0) else { return }
+        let currentPageIndex = Int(pageView.pageIndex)
+        
+        // 모든 획(Strokes)을 순회하며 점들을 수집
+        var groupedLines: [[CGPoint]] = []
+        
+        for stroke in allStrokes {
+            let linePoints: [CGPoint] = stroke.path.compactMap { point in
+                let viewPoint = point.location
+                let pdfPoint = pageView.convert(viewPoint, to: pageView.pdfCoordinateSpace)
+                return self.convertToDb(point: pdfPoint, page: UInt(currentPageIndex))
+            }
+            if !linePoints.isEmpty {
+                groupedLines.append(linePoints)
+            }
+        }
+        
+        guard !groupedLines.isEmpty else { return }
+        
+        // 메인 스레드에서 저장 요청
+        DispatchQueue.main.async {
+            print("✅ 묶음 저장: \(groupedLines.count)개의 획을 하나의 주석으로 저장")
+            
+            // 여기에 ViewModel 저장 액션 호출
+            // self.viewModel.process(action: .createInk(pageIndex: UInt(currentPageIndex), lines: groupedLines))
+            
+            // 저장 후 캔버스 비우기 (이제 안전함)
+            canvasView.drawing = PKDrawing()
+            
+            // (선택) 연속 필기 시 이전 선택 해제
+            self.viewModel.process(action: .deselectSelectedAnnotation)
+        }
+    }
+}
